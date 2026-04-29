@@ -1,0 +1,214 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>子ども編集</title>
+    <link rel="stylesheet" href="/static/app.css" />
+  </head>
+  <body>
+    <main class="phone">
+      <header class="topbar parent-hero">
+        <p class="back-link"><a href="/parent/children">← 子ども一覧へ戻る</a></p>
+        <p class="eyebrow">Child settings</p>
+        <h1>{{ child['child_name'] }} の設定</h1>
+        <p>アカウント情報と利用路線を管理します。</p>
+      </header>
+
+      <section class="settings-actions">
+        <button class="action-tile" type="button" id="open-child-edit">
+          <span>アカウント編集</span>
+          <small>名前・ログインID</small>
+        </button>
+        <button class="action-tile primary" type="button" id="open-add-route">
+          <span>路線追加</span>
+          <small>最寄駅・行先</small>
+        </button>
+        <button class="action-tile danger" type="button" id="open-child-delete">
+          <span>子ども削除</span>
+          <small>このアカウントを削除</small>
+        </button>
+      </section>
+
+      <section class="card parent-card">
+        <div class="section-head">
+          <div>
+            <p class="eyebrow">Routes</p>
+            <h2>登録路線</h2>
+          </div>
+        </div>
+        <ul class="history route-list">
+          {% for r in routes %}
+          <li class="route-row">
+            <div class="route-line-mark"></div>
+            <div class="route-content">
+              <strong>{{ r['route_name'] }}</strong>
+              <span>最寄駅 {{ r['home_station'] }}</span>
+              <small>{{ r['destination_station'] }}方面</small>
+            </div>
+            <button
+              class="btn danger small"
+              type="button"
+              data-route-delete="{{ r['id'] }}"
+              data-route-label="{{ r['route_name'] }} / {{ r['destination_station'] }}方面"
+            >この路線を削除</button>
+          </li>
+          {% else %}
+          <li class="empty-state">
+            <strong>なし</strong>
+            <span>路線追加から利用路線を登録してください。</span>
+          </li>
+          {% endfor %}
+        </ul>
+      </section>
+    </main>
+
+    <dialog id="child-edit-dialog" class="train-dialog">
+      <div class="train-selected active">
+        <h2>アカウント編集</h2>
+        <form method="post" action="/parent/children/{{ child['id'] }}/update" class="stack">
+          <label>表示名<input type="text" name="child_name" value="{{ child['child_name'] }}" required /></label>
+          <label>ログインID<input type="text" name="child_login_id" value="{{ child['child_login_id'] }}" required /></label>
+          <label>新パスワード（変更時のみ）<input type="password" name="child_password" /></label>
+          <button class="btn primary" type="submit">保存</button>
+        </form>
+        <button class="btn dialog-close" type="button" id="close-child-edit">閉じる</button>
+      </div>
+    </dialog>
+
+    <dialog id="add-route-dialog" class="train-dialog">
+      <div class="train-selected active">
+        <h2>路線追加</h2>
+        <form method="post" action="/parent/children/{{ child['id'] }}/routes" class="stack" id="add-route-form">
+          <label>路線名（検索）
+            <input type="text" id="route-search" list="route-master-list" placeholder="路線名で検索" required />
+            <datalist id="route-master-list">
+              {% for r in route_master %}
+              <option value="{{ r['title_ja'] }}" data-railway-id="{{ r['id'] }}"></option>
+              {% endfor %}
+            </datalist>
+          </label>
+          <input type="hidden" name="railway_id" id="railway-id" required />
+          <input type="hidden" name="route_name" id="route-name" required />
+
+          <label>最寄駅
+            <select name="home_station" id="home-station" required></select>
+          </label>
+
+          <label>行先（○○行）
+            <select name="destination_station" id="destination-station" required></select>
+          </label>
+
+          <button class="btn primary" type="submit">路線追加</button>
+        </form>
+        <button class="btn dialog-close" type="button" id="close-add-route">閉じる</button>
+      </div>
+    </dialog>
+
+    <dialog id="child-delete-dialog" class="train-dialog">
+      <div class="train-selected active">
+        <h2>子どもアカウント削除</h2>
+        <p>この子どもアカウントを削除します。</p>
+        <form method="post" action="/parent/children/{{ child['id'] }}/delete">
+          <button class="btn danger" type="submit">削除する</button>
+        </form>
+        <button class="btn dialog-close" type="button" id="close-child-delete">閉じる</button>
+      </div>
+    </dialog>
+
+    <dialog id="route-delete-dialog" class="train-dialog">
+      <div class="train-selected active">
+        <h2>路線削除</h2>
+        <p id="route-delete-target">この路線を削除します。</p>
+        <form method="post" id="route-delete-form" action="/parent/children/{{ child['id'] }}/routes/0/delete">
+          <button class="btn danger" type="submit">削除する</button>
+        </form>
+        <button class="btn dialog-close" type="button" id="close-route-delete">閉じる</button>
+      </div>
+    </dialog>
+
+    <script>
+      (() => {
+        const routeStationMap = {{ route_station_map | tojson }};
+
+        function wire(openId, closeId, dialogId) {
+          const open = document.getElementById(openId);
+          const close = document.getElementById(closeId);
+          const dialog = document.getElementById(dialogId);
+          open.addEventListener('click', () => { if (!dialog.open) dialog.showModal(); });
+          close.addEventListener('click', () => { if (dialog.open) dialog.close(); });
+          return dialog;
+        }
+
+        wire('open-child-edit', 'close-child-edit', 'child-edit-dialog');
+        wire('open-add-route', 'close-add-route', 'add-route-dialog');
+        wire('open-child-delete', 'close-child-delete', 'child-delete-dialog');
+
+        const routeSearch = document.getElementById('route-search');
+        const routeList = document.getElementById('route-master-list');
+        const railwayIdInput = document.getElementById('railway-id');
+        const routeNameInput = document.getElementById('route-name');
+        const homeStationSelect = document.getElementById('home-station');
+        const destinationSelect = document.getElementById('destination-station');
+        const addRouteForm = document.getElementById('add-route-form');
+
+        function fillStationSelects(railwayId) {
+          const stations = routeStationMap[railwayId] || [];
+          homeStationSelect.innerHTML = '';
+          destinationSelect.innerHTML = '';
+          stations.forEach((s, idx) => {
+            const o1 = document.createElement('option');
+            o1.value = s;
+            o1.textContent = s;
+            homeStationSelect.appendChild(o1);
+
+            const o2 = document.createElement('option');
+            o2.value = s;
+            o2.textContent = `${s}方面`;
+            if (idx === stations.length - 1) o2.selected = true;
+            if (idx === 0 || idx === stations.length - 1) destinationSelect.appendChild(o2);
+          });
+        }
+
+        routeSearch.addEventListener('change', () => {
+          const val = routeSearch.value;
+          const match = Array.from(routeList.options).find((opt) => opt.value === val);
+          if (!match) {
+            railwayIdInput.value = '';
+            routeNameInput.value = '';
+            homeStationSelect.innerHTML = '';
+            destinationSelect.innerHTML = '';
+            return;
+          }
+          const railwayId = match.dataset.railwayId;
+          railwayIdInput.value = railwayId;
+          routeNameInput.value = val;
+          fillStationSelects(railwayId);
+        });
+
+        addRouteForm.addEventListener('submit', (e) => {
+          if (!railwayIdInput.value) {
+            e.preventDefault();
+            alert('路線名を候補から選択してください。');
+          }
+        });
+
+        const routeDialog = document.getElementById('route-delete-dialog');
+        const routeForm = document.getElementById('route-delete-form');
+        const routeTarget = document.getElementById('route-delete-target');
+        const routeClose = document.getElementById('close-route-delete');
+
+        document.querySelectorAll('[data-route-delete]').forEach((btn) => {
+          btn.addEventListener('click', () => {
+            const routeId = btn.getAttribute('data-route-delete');
+            const label = btn.getAttribute('data-route-label');
+            routeForm.action = `/parent/children/{{ child['id'] }}/routes/${routeId}/delete`;
+            routeTarget.textContent = `${label} を削除します。`;
+            if (!routeDialog.open) routeDialog.showModal();
+          });
+        });
+        routeClose.addEventListener('click', () => { if (routeDialog.open) routeDialog.close(); });
+      })();
+    </script>
+  </body>
+</html>

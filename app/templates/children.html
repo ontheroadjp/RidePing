@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>子どもアカウント管理</title>
+    <link rel="stylesheet" href="/static/app.css" />
+  </head>
+  <body>
+    <main class="phone">
+      <header class="topbar parent-hero">
+        <p class="back-link"><a href="/parent">← 受信履歴へ戻る</a></p>
+        <p class="eyebrow">Children</p>
+        <h1>子どもアカウント管理</h1>
+        <p>利用するお子さんのアカウントを管理します。</p>
+      </header>
+
+      <section class="card parent-card">
+        <div class="section-head">
+          <div>
+            <p class="eyebrow">Accounts</p>
+            <h2>登録済み子ども</h2>
+          </div>
+          <button class="btn primary" type="button" id="open-add-child">新規追加</button>
+        </div>
+        <ul class="history account-list">
+          {% for c in children %}
+          <li>
+            <a class="account-row" href="/parent/children/{{ c['id'] }}">
+              <span class="avatar-dot">{{ c['child_name'][:1] }}</span>
+              <span>
+                <strong>{{ c['child_name'] }}</strong>
+                <small>ID: {{ c['child_login_id'] }}</small>
+              </span>
+              <em>編集</em>
+            </a>
+          </li>
+          {% else %}
+          <li class="empty-state">
+            <strong>なし</strong>
+            <span>新規追加から子どもアカウントを作成してください。</span>
+          </li>
+          {% endfor %}
+        </ul>
+      </section>
+    </main>
+
+    <dialog id="add-child-dialog" class="train-dialog">
+      <div class="train-selected active">
+        <h2>子どもアカウント新規追加</h2>
+        <form method="post" action="/parent/children" class="stack">
+          <label>表示名<input type="text" name="child_name" required /></label>
+          <label>子ログインID<input type="text" name="child_login_id" required /></label>
+          <label>子パスワード<input type="password" name="child_password" required /></label>
+          <button class="btn primary" type="submit">追加</button>
+        </form>
+        <button class="btn dialog-close" type="button" id="close-add-child">閉じる</button>
+      </div>
+    </dialog>
+
+    <script>
+      (() => {
+        const open = document.getElementById('open-add-child');
+        const close = document.getElementById('close-add-child');
+        const dialog = document.getElementById('add-child-dialog');
+        open.addEventListener('click', () => { if (!dialog.open) dialog.showModal(); });
+        close.addEventListener('click', () => { if (dialog.open) dialog.close(); });
+      })();
+    </script>
+  </body>
+</html>

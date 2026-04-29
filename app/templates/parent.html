@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>受信履歴</title>
+    <link rel="stylesheet" href="/static/app.css" />
+  </head>
+  <body>
+    <main class="phone">
+      <header class="topbar parent-hero menu-head">
+        <div>
+          <p class="eyebrow">Guardian inbox</p>
+          <h1>受信履歴</h1>
+          <p>お子さんから届いた乗車連絡を確認できます。</p>
+        </div>
+        <button class="menu-btn" id="menu-btn" type="button" aria-label="メニューを開く">☰</button>
+      </header>
+
+      <section class="menu-panel parent-menu" id="menu-panel" hidden>
+        <a class="menu-link" href="/parent/children">
+          <span>子どもアカウント管理</span>
+          <small>アカウント・路線設定</small>
+        </a>
+        <button class="menu-link as-button" type="button" id="open-email">
+          <span>通知先メールを変更</span>
+          <small>{{ parent['parent_email'] }}</small>
+        </button>
+        <form method="post" action="/logout">
+          <button class="menu-link as-button" type="submit">
+            <span>ログアウト</span>
+            <small>この端末のセッションを終了</small>
+          </button>
+        </form>
+      </section>
+
+      <section class="summary-strip">
+        <div class="summary-card">
+          <span>通知先</span>
+          <strong>{{ parent['parent_email'] }}</strong>
+        </div>
+        <div class="summary-card">
+          <span>最新表示</span>
+          <strong>10件</strong>
+        </div>
+      </section>
+
+      <section class="card parent-card">
+        <div class="section-head">
+          <div>
+            <p class="eyebrow">Ride reports</p>
+            <h2>最新受信</h2>
+          </div>
+        </div>
+        <ul class="history report-list">
+          {% for r in reports %}
+          <li class="report-item">
+            <div class="report-main">
+              <span class="report-child">{{ r['child_name'] }}</span>
+              <strong>{{ r['from_station'] }}→{{ r['to_station'] }}</strong>
+              <span class="report-meta">{{ r['created_at'] }} / 列車 {{ r['train_number'] }}</span>
+            </div>
+            <div class="eta-pill">到着 {{ r['eta_home'] }}</div>
+          </li>
+          {% else %}
+          <li class="empty-state">
+            <strong>履歴なし</strong>
+            <span>乗車連絡が届くとここに表示されます。</span>
+          </li>
+          {% endfor %}
+        </ul>
+      </section>
+    </main>
+
+    <dialog id="email-dialog" class="train-dialog">
+      <div class="train-selected active">
+        <h2>通知先メール変更</h2>
+        <form method="post" action="/parent/settings" class="stack">
+          <label>メール
+            <input type="email" name="parent_email" value="{{ parent['parent_email'] }}" required />
+          </label>
+          <button class="btn primary" type="submit">保存</button>
+        </form>
+        <button class="btn dialog-close" type="button" id="close-email">閉じる</button>
+      </div>
+    </dialog>
+
+    <script>
+      (() => {
+        const btn = document.getElementById('menu-btn');
+        const panel = document.getElementById('menu-panel');
+        const openEmail = document.getElementById('open-email');
+        const closeEmail = document.getElementById('close-email');
+        const emailDialog = document.getElementById('email-dialog');
+
+        btn.addEventListener('click', () => { panel.hidden = !panel.hidden; });
+        openEmail.addEventListener('click', () => { if (!emailDialog.open) emailDialog.showModal(); });
+        closeEmail.addEventListener('click', () => { if (emailDialog.open) emailDialog.close(); });
+      })();
+    </script>
+  </body>
+</html>

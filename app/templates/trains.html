@@ -1,0 +1,303 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>電車選択</title>
+    <link rel="stylesheet" href="/static/app.css" />
+  </head>
+  <body>
+    <main class="phone">
+      <header class="topbar">
+        <p class="top-note">大江戸線 乗車連絡</p>
+        <div class="now-clock in-header" id="now-clock">--:--:--</div>
+        <p>{{ setting['child_name'] }} さんの操作画面</p>
+        <p>{% if key_enabled %}ODPTリアルタイム取得{% else %}列車情報を取得中{% endif %}</p>
+      </header>
+
+      {% if dev_ui_enabled and not key_enabled %}
+      <section class="card dev-card">
+        <p class="dev-title">開発用コンポーネント</p>
+        <p class="dev-note">ODPTキー未設定のため、現在はデモ列車データで描画中です。</p>
+      </section>
+      {% endif %}
+
+      <section class="card">
+        <form method="get" action="/trains" class="stack">
+          <label>路線を選ぶ
+            <select name="route_id" onchange="this.form.submit()">
+              {% for r in routes %}
+              <option value="{{ r['id'] }}" {% if r['id'] == selected_route_id %}selected{% endif %}>
+                {{ r['route_name'] }} / 最寄駅 {{ r['home_station'] }} / {{ r['destination_station'] }}方面
+              </option>
+              {% endfor %}
+            </select>
+          </label>
+        </form>
+      </section>
+
+      <section class="card">
+        <div class="line-map-scroll">
+          <div id="line-map" class="line-map" aria-label="大江戸線路線図">
+            <div class="line-track"></div>
+            {% for s in stations %}
+            <div class="station" style="top: {{ (1 + (loop.index0 / ((stations|length) - 1) * 98)) | round(2) }}%;">
+              <span class="station-dot"></span>
+              <span class="station-label">{{ s }}</span>
+              <span class="station-time" data-station-idx="{{ loop.index0 }}" data-base-label="{{ station_first_departure_labels.get(s, '') }}">{{ station_first_departure_labels.get(s, '') }}</span>
+            </div>
+            {% endfor %}
+
+            {% for t in trains %}
+            <button
+              type="button"
+              class="train-chip"
+              data-train-id="{{ t.train_id }}"
+              data-train-number="{{ t.train_number }}"
+              data-from="{{ t.from_station }}"
+              data-to="{{ t.to_station }}"
+              data-delay="{{ t.delay_sec }}"
+              data-eta="{{ t.eta_home }}"
+              data-state="{{ t.state }}"
+              data-position-index="{{ '%.4f'|format(t.position_index) }}"
+              data-from-index="{{ '%.4f'|format(t.from_index) }}"
+              data-to-index="{{ '%.4f'|format(t.to_index) }}"
+              data-departed-at-sec="{{ t.departed_at_sec }}"
+              data-arrives-at-sec="{{ t.arrives_at_sec }}"
+              data-current-time-sec="{{ t.current_time_sec }}"
+              data-departure-label="{{ t.departure_label }}"
+            >🚆 {{ t.train_number }}</button>
+            {% endfor %}
+          </div>
+        </div>
+      </section>
+
+      <form method="post" action="/logout">
+        <button type="submit" class="btn">ログアウト</button>
+      </form>
+    </main>
+
+    <dialog id="train-dialog" class="train-dialog">
+      <div class="train-selected active">
+        <h2>選択中の電車</h2>
+        <p id="selected-summary">まだ選択されていません</p>
+        <p class="eta" id="selected-eta">最寄駅 {{ setting['home_station'] }} 到着予定 --:--</p>
+        <form method="post" action="/report" id="report-form">
+          <input type="hidden" name="train_number" id="f-train-number" />
+          <input type="hidden" name="from_station" id="f-from" />
+          <input type="hidden" name="to_station" id="f-to" />
+          <input type="hidden" name="eta_home" id="f-eta" />
+          <input type="hidden" name="route_id" value="{{ selected_route_id }}" />
+          <button type="submit" class="btn primary" id="report-btn" disabled>この電車に乗ってる</button>
+        </form>
+        <button type="button" class="btn dialog-close" id="dialog-close">閉じる</button>
+      </div>
+    </dialog>
+
+    <script>
+      (() => {
+        const stations = [{% for s in stations %}"{{ s }}"{% if not loop.last %}, {% endif %}{% endfor %}];
+        const map = document.getElementById('line-map');
+        const chips = Array.from(document.querySelectorAll('.train-chip'));
+        const selectedRouteId = "{{ selected_route_id }}";
+        const stationTimes = Array.from(document.querySelectorAll('.station-time'));
+        const clock = document.getElementById('now-clock');
+        const dialog = document.getElementById('train-dialog');
+        const closeBtn = document.getElementById('dialog-close');
+        const summary = document.getElementById('selected-summary');
+        const etaLabel = document.getElementById('selected-eta');
+        const reportBtn = document.getElementById('report-btn');
+
+        const fTrain = document.getElementById('f-train-number');
+        const fFrom = document.getElementById('f-from');
+        const fTo = document.getElementById('f-to');
+        const fEta = document.getElementById('f-eta');
+
+        function stationIndex(name) {
+          const i = stations.indexOf(name);
+          return i >= 0 ? i : 0;
+        }
+
+        function toPercent(i) {
+          if (stations.length <= 1) return 0;
+          return 1 + ((i / (stations.length - 1)) * 98);
+        }
+
+        function pad2(v) {
+          return String(v).padStart(2, '0');
+        }
+
+        function fmtTime(d) {
+          return `${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+        }
+
+        function refreshClock() {
+          const now = new Date();
+          clock.textContent = `${pad2(now.getHours())}:${pad2(now.getMinutes())}:${pad2(now.getSeconds())}`;
+        }
+
+        refreshClock();
+        setInterval(refreshClock, 1000);
+
+        function setDeparture(stationIdx, depAt) {
+          const el = stationTimes.find((node) => Number(node.dataset.stationIdx) === stationIdx);
+          if (!el) return;
+          el.textContent = `出発: ${fmtTime(depAt)}`;
+          el.classList.add('active');
+        }
+
+        function clearDeparture(stationIdx) {
+          const el = stationTimes.find((node) => Number(node.dataset.stationIdx) === stationIdx);
+          if (!el) return;
+          el.textContent = el.dataset.baseLabel || '';
+          el.classList.remove('active');
+        }
+
+        function stateFromChip(chip, idx) {
+          const lane = idx % 3;
+          const laneOffset = lane === 0 ? -18 : lane === 2 ? 18 : 0;
+          return {
+            chip,
+            state: chip.dataset.state || 'running',
+            basePosition: Number(chip.dataset.positionIndex || '0'),
+            fromIndex: Number(chip.dataset.fromIndex || '0'),
+            toIndex: Number(chip.dataset.toIndex || '0'),
+            departedAtSec: Number(chip.dataset.departedAtSec || '0'),
+            arrivesAtSec: Number(chip.dataset.arrivesAtSec || '0'),
+            currentTimeSec: Number(chip.dataset.currentTimeSec || '0'),
+            departureLabel: chip.dataset.departureLabel || '',
+            laneOffset,
+          };
+        }
+
+        let states = chips.map((chip, idx) => stateFromChip(chip, idx));
+
+        function applyTrainDataset(chip, t) {
+          chip.dataset.trainId = t.train_id;
+          chip.dataset.trainNumber = t.train_number;
+          chip.dataset.from = t.from_station;
+          chip.dataset.to = t.to_station;
+          chip.dataset.delay = t.delay_sec;
+          chip.dataset.eta = t.eta_home;
+          chip.dataset.state = t.state;
+          chip.dataset.positionIndex = t.position_index;
+          chip.dataset.fromIndex = t.from_index;
+          chip.dataset.toIndex = t.to_index;
+          chip.dataset.departedAtSec = t.departed_at_sec;
+          chip.dataset.arrivesAtSec = t.arrives_at_sec;
+          chip.dataset.currentTimeSec = t.current_time_sec;
+          chip.dataset.departureLabel = t.departure_label;
+          chip.textContent = `🚆 ${t.train_number}`;
+        }
+
+        function attachTrainClick(chip) {
+          chip.addEventListener('click', () => {
+            document.querySelectorAll('.train-chip').forEach((c) => c.classList.remove('selected'));
+            chip.classList.add('selected');
+
+            const trainNumber = chip.dataset.trainNumber || '';
+            const from = chip.dataset.from || '';
+            const to = chip.dataset.to || '';
+            const eta = chip.dataset.eta || '';
+            const delayMin = Math.floor(Number(chip.dataset.delay || '0') / 60);
+
+            summary.textContent = `${trainNumber} / ${from} → ${to} / 遅延 ${delayMin} 分`;
+            etaLabel.innerHTML = `最寄駅 {{ setting['home_station'] }} 到着予定 <strong>${eta}</strong>`;
+
+            fTrain.value = trainNumber;
+            fFrom.value = from;
+            fTo.value = to;
+            fEta.value = eta;
+            reportBtn.disabled = false;
+            if (dialog && typeof dialog.showModal === 'function' && !dialog.open) dialog.showModal();
+          });
+        }
+
+        chips.forEach(attachTrainClick);
+
+        function serviceSecondsNow() {
+          const now = new Date();
+          const minutes = now.getHours() * 60 + now.getMinutes();
+          return ((minutes < 180 ? minutes + 24 * 60 : minutes) * 60) + now.getSeconds();
+        }
+
+        function positionForState(s) {
+          if (s.state !== 'running') return s.basePosition;
+          const nowSec = serviceSecondsNow();
+          if (s.arrivesAtSec <= s.departedAtSec) return s.toIndex;
+          const progress = Math.max(0, Math.min(1, (nowSec - s.departedAtSec) / (s.arrivesAtSec - s.departedAtSec)));
+          return s.fromIndex + ((s.toIndex - s.fromIndex) * progress);
+        }
+
+        function render() {
+          if (states.length === 0) return;
+          states.forEach((s) => {
+            const pos = positionForState(s);
+            s.chip.style.top = `${toPercent(pos).toFixed(2)}%`;
+            s.chip.style.left = `${22 + s.laneOffset}px`;
+          });
+          requestAnimationFrame(render);
+        }
+
+        function updateStationDepartureLabels() {
+          stationTimes.forEach((el) => {
+            el.textContent = el.dataset.baseLabel || '';
+            el.classList.remove('active');
+          });
+          states.forEach((s) => {
+            if (s.state !== 'stopped') return;
+            const stationIdx = Math.round(s.basePosition);
+            const el = stationTimes.find((node) => Number(node.dataset.stationIdx) === stationIdx);
+            if (!el || !s.departureLabel) return;
+            el.textContent = `出発: ${s.departureLabel}`;
+            el.classList.add('active');
+          });
+        }
+
+        updateStationDepartureLabels();
+
+        async function syncTrainPositions() {
+          try {
+            const res = await fetch(`/api/trains?route_id=${selectedRouteId}`, { headers: { Accept: 'application/json' } });
+            if (!res.ok) return;
+            const payload = await res.json();
+            const incoming = payload.trains || [];
+            const incomingIds = new Set(incoming.map((t) => t.train_id));
+            states
+              .filter((s) => !incomingIds.has(s.chip.dataset.trainId))
+              .forEach((s) => s.chip.remove());
+
+            const nextStates = [];
+            incoming.forEach((t) => {
+              let state = states.find((s) => s.chip.dataset.trainId === t.train_id);
+              if (!state) {
+                const chip = document.createElement('button');
+                chip.type = 'button';
+                chip.className = 'train-chip';
+                map.appendChild(chip);
+                attachTrainClick(chip);
+                state = { chip };
+              }
+              applyTrainDataset(state.chip, t);
+              nextStates.push(stateFromChip(state.chip, nextStates.length));
+            });
+            states = nextStates;
+            updateStationDepartureLabels();
+          } catch (_) {
+            // Keep the last known positions if the background refresh fails.
+          }
+        }
+
+        setInterval(syncTrainPositions, 5000);
+
+        if (closeBtn) {
+          closeBtn.addEventListener('click', () => {
+            if (dialog && dialog.open) dialog.close();
+          });
+        }
+
+        render();
+      })();
+    </script>
+  </body>
+</html>

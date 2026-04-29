@@ -1,0 +1,18 @@
+{
+  "name": "konodenshani-notteruyo",
+  "version": "0.1.0",
+  "private": true,
+  "description": "MVP web app for notifying guardians which train a child is riding.",
+  "scripts": {
+    "setup": "python3 -m venv venv && ./venv/bin/pip install -r requirements.txt && npm run db:init",
+    "db:init": "./venv/bin/python scripts/init_db.py",
+    "dev": "sh -c './venv/bin/uvicorn app.main:app --reload --host ${HOST:-127.0.0.1} --port ${PORT:-8000}'",
+    "start": "sh -c './venv/bin/uvicorn app.main:app --host ${HOST:-127.0.0.1} --port ${PORT:-8000}'",
+    "test": "./venv/bin/python -m pytest -q",
+    "test:verbose": "./venv/bin/python -m pytest",
+    "test:timetable": "./venv/bin/python -m pytest tests/test_timetable_positions.py -q",
+    "debug:timetable:hikarigaoka": "./venv/bin/python scripts/debug_timetable.py --destination 光が丘 --step-minutes 10",
+    "debug:timetable:tochomae": "./venv/bin/python scripts/debug_timetable.py --destination 都庁前 --step-minutes 10",
+    "check": "npm run test && npm run debug:timetable:hikarigaoka && npm run debug:timetable:tochomae"
+  }
+}

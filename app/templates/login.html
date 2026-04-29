@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ログイン</title>
+    <link rel="stylesheet" href="/static/app.css" />
+  </head>
+  <body>
+    <main class="phone">
+      <header class="topbar">
+        <h1>この電車に乗ってるよ</h1>
+        <p>ログイン</p>
+      </header>
+      <section class="card">
+        <form method="post" action="/login" class="stack">
+          <label>ログイン種別
+            <select name="role" required>
+              <option value="child">子ども</option>
+              <option value="parent">親</option>
+            </select>
+          </label>
+          <label>ログインID
+            <input type="text" name="login_id" required />
+          </label>
+          <label>パスワード
+            <input type="password" name="password" required />
+          </label>
+          <button type="submit" class="btn primary">ログイン</button>
+          {% if error %}<p class="error">{{ error }}</p>{% endif %}
+        </form>
+      </section>
+      {% if dev_ui_enabled %}
+      <section class="card dev-card">
+        <p class="dev-title">開発用コンポーネント</p>
+        <p class="dev-note">このカード内の要素は本番UIとは分離された開発補助です。</p>
+        <div class="dev-login-row">
+          <button type="button" class="btn dev" id="dev-parent">親で開発ログイン</button>
+          <button type="button" class="btn dev" id="dev-child">子で開発ログイン</button>
+        </div>
+      </section>
+      <section class="card dev-card">
+        <p class="dev-title">開発用コンポーネント</p>
+        <p class="dev-note">初期アカウント情報（本番では非表示）</p>
+        <ul class="history">
+          <li>親: `parent1 / parent123`</li>
+          <li>子: `child1 / child123`</li>
+        </ul>
+      </section>
+      {% endif %}
+    </main>
+    <script>
+      (() => {
+        const form = document.querySelector('form[action="/login"]');
+        const role = form.querySelector('select[name="role"]');
+        const loginId = form.querySelector('input[name="login_id"]');
+        const password = form.querySelector('input[name="password"]');
+        const devParent = document.getElementById('dev-parent');
+        const devChild = document.getElementById('dev-child');
+
+        function quickLogin(r, id, pass) {
+          role.value = r;
+          loginId.value = id;
+          password.value = pass;
+          form.submit();
+        }
+
+        if (devParent) devParent.addEventListener('click', () => quickLogin('parent', 'parent1', 'parent123'));
+        if (devChild) devChild.addEventListener('click', () => quickLogin('child', 'child1', 'child123'));
+      })();
+    </script>
+  </body>
+</html>
