@@ -10,7 +10,7 @@ from app.db import init_db
 from app.paths import BASE_DIR
 from app.routers import api, auth, child, parent
 
-app = FastAPI(title="この電車に乗ってるよ MVP")
+app = FastAPI(title="乗ったよ / RidePing MVP")
 app.add_middleware(SessionMiddleware, secret_key=os.getenv("SESSION_SECRET", "dev-secret-change-me"))
 app.mount("/static", StaticFiles(directory=BASE_DIR / "app" / "static"), name="static")
 

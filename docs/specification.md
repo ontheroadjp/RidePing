@@ -1,4 +1,4 @@
-# この電車に乗ってるよ - Specification
+# 乗ったよ / RidePing - Specification
 
 ## 1. 目的
 本書は、初見エンジニアが現行実装を正確に理解し、改修を安全に行うための仕様書。

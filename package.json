@@ -1,8 +1,8 @@
 {
-  "name": "konodenshani-notteruyo",
+  "name": "rideping",
   "version": "0.1.0",
   "private": true,
-  "description": "MVP web app for notifying guardians which train a child is riding.",
+  "description": "乗ったよ / RidePing MVP for notifying guardians which train a child is riding.",
   "scripts": {
     "setup": "python3 -m venv venv && ./venv/bin/pip install -r requirements.txt && npm run db:init",
     "db:init": "./venv/bin/python scripts/init_db.py",

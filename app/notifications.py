@@ -17,7 +17,7 @@ def write_notification(
     ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     body = (
         f"To: {parent_email}\n"
-        f"Subject: 【この電車に乗ってるよ】乗車連絡\n\n"
+        f"Subject: 【乗ったよ】乗車連絡\n\n"
         f"{child_name}さんが大江戸線に乗車しました。\n"
         f"列車番号: {train_number}\n"
         f"現在区間: {from_station} -> {to_station}\n"
